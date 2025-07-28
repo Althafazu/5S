@@ -1,4 +1,5 @@
 import { useTheme } from "@react-navigation/native";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
@@ -29,15 +30,16 @@ const Login = () => {
 
     try {
       // TODO: Implement your login logic here
-      // Example: await authService.login(email, password);
+      // Example: await authService.login(username, password);
 
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      Alert.alert("Success", "Login successful!");
+      Alert.alert("Success", "Login Berhasil!");
       // TODO: Navigate to main app screen
+      router.replace("/(tabs)");
     } catch (error) {
-      Alert.alert("Error", "Login failed. Please try again.");
+      Alert.alert("Error", "Login Gagal. Coba lagi nanti.");
     } finally {
       setIsLoading(false);
     }

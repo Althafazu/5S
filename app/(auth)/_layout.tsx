@@ -1,13 +1,12 @@
-import { Tabs } from "expo-router";
-import { Platform } from "react-native";
+import { Stack } from "expo-router";
 
-export default function TabLayout() {
+export default function AuthLayout() {
     return (
-        <Tabs
+        <Stack
             screenOptions={{ 
                 headerShown: false,
             }}>
-            <Tabs.Screen name='login' options={{ title: 'Login' }}/>
-        </Tabs>
+            <Stack.Screen name='login' options={{ title: 'Login' }}/>
+        </Stack>
     )
 }
