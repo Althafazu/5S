@@ -1,21 +1,38 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, UIManager, View, ActivityIndicator } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  UIManager,
+  View,
+} from "react-native";
 import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CustomAlert } from "../utils/CustomAlert";
 
-// Enable LayoutAnimation for Android
 if (Platform.OS === "android") {
   if (UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
   }
 }
 
-// Tipe data untuk barang
+interface StoredUserData {
+  username: string;
+  role: string;
+  password: string;
+  id: number;
+}
+
 interface Barang {
   id: number;
   nama_barang: string;
@@ -26,17 +43,17 @@ interface Barang {
   status_penggunaan: string;
   alasan_tidak_dipakai?: string;
   tindak_lanjut?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-// Tipe untuk data user dari AsyncStorage
-interface StoredUserData {
-  username: string;
-  role: string;
-  password: string;
-  id: number;
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
 }
 
-export default function Seiri() {
+export default function SeiritScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [userData, setUserData] = useState<StoredUserData | null>(null);
@@ -44,71 +61,188 @@ export default function Seiri() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedBarang, setSelectedBarang] = useState<Barang | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    nama_barang: "",
+    qty: 1,
+    status_penggunaan: "dipakai",
+    alasan_tidak_dipakai: "",
+    tindak_lanjut: "",
+  });
 
-  // Ambil data user dari AsyncStorage
-  useEffect(() => {
-    const getUserData = async () => {
-      try {
-        const jsonValue = await AsyncStorage.getItem("userData");
-        if (jsonValue) {
-          const user: StoredUserData = JSON.parse(jsonValue);
-          setUserData(user);
-        }
-      } catch (error) {
-        CustomAlert.error("Error", "Gagal memuat data pengguna");
+  // API Functions (using dummy data for now)
+  const fetchBarangData = async (): Promise<ApiResponse<Barang[]>> => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const dummyData: Barang[] = [
+          {
+            id: 1,
+            nama_barang: "Bor Listrik",
+            id_pengguna: 1,
+            id_departemen: 3,
+            jenis_kepemilikan: "pribadi",
+            qty: 2,
+            status_penggunaan: "tidak_dipakai",
+            alasan_tidak_dipakai: "Mati total",
+            tindak_lanjut: "dibuang",
+            createdAt: "2024-01-15T08:30:00Z",
+          },
+          {
+            id: 2,
+            nama_barang: "Laptop Dell",
+            id_pengguna: 1,
+            id_departemen: 1,
+            jenis_kepemilikan: "perusahaan",
+            qty: 1,
+            status_penggunaan: "dipakai",
+            createdAt: "2024-01-14T10:15:00Z",
+          },
+          {
+            id: 3,
+            nama_barang: "Meja Kantor",
+            id_pengguna: 2,
+            id_departemen: 2,
+            jenis_kepemilikan: "departemen",
+            qty: 5,
+            status_penggunaan: "dipakai",
+            createdAt: "2024-01-13T14:20:00Z",
+          },
+          {
+            id: 4,
+            nama_barang: "Printer Epson",
+            id_pengguna: 3,
+            id_departemen: 1,
+            jenis_kepemilikan: "perusahaan",
+            qty: 1,
+            status_penggunaan: "tidak_dipakai",
+            alasan_tidak_dipakai: "Kertas macet",
+            tindak_lanjut: "Diperbaiki",
+            createdAt: "2024-01-12T09:45:00Z",
+          },
+        ];
+        resolve({ success: true, data: dummyData });
+      }, 1000);
+    });
+  };
+
+  const submitBarangData = async (data: Omit<Barang, "id">): Promise<ApiResponse<Barang>> => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const newItem: Barang = {
+          ...data,
+          id: Date.now(),
+          createdAt: new Date().toISOString(),
+        };
+        resolve({ success: true, data: newItem, message: "Data berhasil disimpan" });
+      }, 1500);
+    });
+  };
+
+  const updateBarangData = async (id: number, data: Partial<Barang>): Promise<ApiResponse<Barang>> => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const updatedItem: Barang = {
+          ...(data as Barang),
+          id,
+          updatedAt: new Date().toISOString(),
+        };
+        resolve({ success: true, data: updatedItem, message: "Data berhasil diupdate" });
+      }, 1500);
+    });
+  };
+
+  const deleteBarangData = async (id: number): Promise<ApiResponse<null>> => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ success: true, data: null, message: "Data berhasil dihapus" });
+      }, 1000);
+    });
+  };
+
+  const resetForm = () => {
+    setForm({
+      nama_barang: "",
+      qty: 1,
+      status_penggunaan: "dipakai",
+      alasan_tidak_dipakai: "",
+      tindak_lanjut: "",
+    });
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedBarang(null);
+    resetForm();
+  };
+
+  const handleSubmit = async () => {
+    if (!form.nama_barang.trim()) {
+      CustomAlert.error("Error", "Nama barang wajib diisi");
+      return;
+    }
+
+    if (form.status_penggunaan === "tidak_dipakai") {
+      if (!form.alasan_tidak_dipakai.trim()) {
+        CustomAlert.error("Error", "Alasan tidak dipakai wajib diisi");
+        return;
       }
-    };
-    getUserData();
-  }, []);
+      if (!form.tindak_lanjut.trim()) {
+        CustomAlert.error("Error", "Tindak lanjut wajib diisi");
+        return;
+      }
+    }
 
-  // Load dummy data
-  useEffect(() => {
-    // Simulasi data awal
-    const mockBarang: Barang[] = [
-      {
-        id: 1,
-        nama_barang: "Bor Listrik",
-        id_pengguna: 1,
-        id_departemen: 3,
-        jenis_kepemilikan: "pribadi",
-        qty: 2,
-        status_penggunaan: "tidak_dipakai",
-        alasan_tidak_dipakai: "Mati total",
-        tindak_lanjut: "dibuang",
-      },
-      {
-        id: 2,
-        nama_barang: "Laptop Dell",
-        id_pengguna: 1,
-        id_departemen: 1,
-        jenis_kepemilikan: "perusahaan",
-        qty: 1,
-        status_penggunaan: "dipakai",
-      },
-      {
-        id: 3,
-        nama_barang: "Meja Kantor",
-        id_pengguna: 2,
-        id_departemen: 2,
-        jenis_kepemilikan: "departemen",
-        qty: 5,
-        status_penggunaan: "dipakai",
-      },
-      {
-        id: 4,
-        nama_barang: "Printer Epson",
-        id_pengguna: 3,
-        id_departemen: 1,
-        jenis_kepemilikan: "perusahaan",
-        qty: 1,
-        status_penggunaan: "tidak_dipakai",
-        alasan_tidak_dipakai: "Kertas macet",
-        tindak_lanjut: "Diperbaiki",
-      },
-    ];
-    setBarangList(mockBarang);
-  }, []);
+    if (!userData) {
+      CustomAlert.error("Error", "Data user tidak ditemukan");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (selectedBarang) {
+        // Update existing
+        const response = await updateBarangData(selectedBarang.id, {
+          ...selectedBarang,
+          nama_barang: form.nama_barang.trim(),
+          qty: form.qty,
+          status_penggunaan: form.status_penggunaan,
+          alasan_tidak_dipakai: form.alasan_tidak_dipakai.trim(),
+          tindak_lanjut: form.tindak_lanjut.trim(),
+        });
+
+        if (response.success) {
+          setBarangList((prev) => prev.map((item) => (item.id === selectedBarang.id ? response.data : item)));
+          closeModal();
+          CustomAlert.success("Sukses", response.message || "Data berhasil diupdate");
+        }
+      } else {
+        // Add new
+        const response = await submitBarangData({
+          nama_barang: form.nama_barang.trim(),
+          id_pengguna: userData.id,
+          id_departemen: userData.id,
+          jenis_kepemilikan: "pribadi",
+          qty: form.qty,
+          status_penggunaan: form.status_penggunaan,
+          alasan_tidak_dipakai: form.alasan_tidak_dipakai.trim(),
+          tindak_lanjut: form.tindak_lanjut.trim(),
+        });
+
+        if (response.success) {
+          setBarangList((prev) => [response.data, ...prev]);
+          closeModal();
+          CustomAlert.success("Sukses", response.message || "Data berhasil ditambahkan");
+        }
+      }
+    } catch (error) {
+      console.error("Submit error:", error);
+      CustomAlert.error("Error", "Gagal menyimpan data. Silakan coba lagi.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleDelete = (id: number) => {
     CustomAlert.show({
@@ -116,590 +250,691 @@ export default function Seiri() {
       title: "Konfirmasi",
       message: "Apakah Anda yakin ingin menghapus barang ini?",
       buttons: [
-        {
-          text: "Batal",
-          style: "cancel",
-        },
+        { text: "Batal", style: "cancel" },
         {
           text: "Hapus",
           style: "destructive",
-          onPress: () => {
-            // Logika penghapusan
-            setBarangList((prev) => prev.filter((item) => item.id !== id));
-            setSelectedBarang((prev) => (prev?.id === id ? null : prev));
-
-            // Tampilkan alert sukses setelah alert konfirmasi benar-benar tertutup
-            setTimeout(() => {
-              CustomAlert.success("Sukses", "Barang berhasil dihapus", [
-                { text: "OK" }, // Tambahkan tombol OK agar user bisa menutup manual
-              ]);
-            }, 300);
+          onPress: async () => {
+            try {
+              const response = await deleteBarangData(id);
+              if (response.success) {
+                setBarangList((prev) => prev.filter((item) => item.id !== id));
+                CustomAlert.success("Sukses", response.message || "Barang berhasil dihapus");
+              }
+            } catch (error) {
+              CustomAlert.error("Error", "Gagal menghapus data");
+            }
           },
         },
       ],
     });
   };
 
-  // Filter barang berdasarkan pencarian
+  const loadData = async () => {
+    try {
+      const response = await fetchBarangData();
+      if (response.success) {
+        setBarangList(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to load barang data", error);
+      CustomAlert.error("Error", "Gagal memuat data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const storedData = await AsyncStorage.getItem("@user_data");
+        if (storedData) {
+          setUserData(JSON.parse(storedData));
+        }
+      } catch (e) {
+        console.error("Failed to load user data", e);
+      }
+    };
+    fetchUserData();
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (selectedBarang) {
+      setForm({
+        nama_barang: selectedBarang.nama_barang,
+        qty: selectedBarang.qty,
+        status_penggunaan: selectedBarang.status_penggunaan,
+        alasan_tidak_dipakai: selectedBarang.alasan_tidak_dipakai || "",
+        tindak_lanjut: selectedBarang.tindak_lanjut || "",
+      });
+    }
+  }, [selectedBarang]);
+
   const filteredBarang = barangList.filter((item) =>
     item.nama_barang.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Fungsi untuk menangani submit form
-  const handleSubmit = (formData: Omit<Barang, "id">) => {
-    setLoading(true);
+  const isSubmitDisabled =
+    submitting ||
+    !form.nama_barang.trim() ||
+    (form.status_penggunaan === "tidak_dipakai" && (!form.alasan_tidak_dipakai.trim() || !form.tindak_lanjut.trim()));
 
-    setTimeout(() => {
-      if (selectedBarang) {
-        // Update existing
-        const updatedList = barangList.map((item) =>
-          item.id === selectedBarang.id ? { ...formData, id: selectedBarang.id } : item
-        );
-        setBarangList(updatedList);
-        CustomAlert.success("Sukses", "Barang berhasil diupdate");
-      } else {
-        // Add new
-        const newBarang = {
-          id: Math.max(0, ...barangList.map((b) => b.id)) + 1,
-          ...formData,
-          id_pengguna: userData?.id || 0,
-          // Departemen dan jenis kepemilikan akan diisi di backend
-          id_departemen: userData?.id || 0, // Simpan untuk referensi, tapi tidak ditampilkan di form
-          jenis_kepemilikan: "pribadi", // Simpan untuk referensi, tapi tidak ditampilkan di form
-        };
-        setBarangList([...barangList, newBarang]);
-        CustomAlert.success("Sukses", "Barang berhasil ditambahkan", [{ text: "OK" }]);
-      }
-      setModalVisible(false);
-      setSelectedBarang(null);
-      setLoading(false);
-    }, 800);
-  };
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF6B6B" />
+        <Text style={styles.loadingText}>Memuat data...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8, paddingBottom: 12 }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="arrow-back" size={24} color="#ffffffff" />
-        </TouchableOpacity>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>Seiri</Text>
-          <Text style={styles.headerSubtitle}>Ringkas / Rapi</Text>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Seiri</Text>
+            <Text style={styles.headerSubtitle}>Manajemen inventaris barang</Text>
+          </View>
+          <View style={styles.placeholder} />
         </View>
       </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#7f8c8d" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Cari Barang..."
-          placeholderTextColor="#95a5a6"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCapitalize="none"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery("")} style={styles.clearButton}>
-            <Ionicons name="close-circle" size={20} color="#7f8c8d" />
-          </TouchableOpacity>
-        )}
+      {/* Search */}
+      <View style={styles.searchSection}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#6B7280" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Cari barang..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={20} color="#6B7280" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {/* Daftar Barang */}
-      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* Tombol Tambah Barang */}
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => {
-            setSelectedBarang(null);
-            setModalVisible(true);
-          }}>
-          <Ionicons name="add" size={24} color="white" />
-          <Text style={styles.addButtonText}>Tambah Barang</Text>
-        </TouchableOpacity>
+      {/* Content */}
+      <FlatList
+        data={filteredBarang}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#FF6B6B"]} />}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{item.nama_barang}</Text>
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedBarang(item);
+                    setModalVisible(true);
+                  }}
+                  style={styles.actionButton}>
+                  <Ionicons name="create-outline" size={20} color="#FF6B6B" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionButton}>
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-        <Text style={styles.sectionHeader}>Daftar Barang</Text>
-        {filteredBarang.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="cube-outline" size={48} color="#bdc3c7" />
-            <Text style={styles.emptyText}>Tidak ada barang</Text>
+            <View style={styles.cardContent}>
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Jumlah:</Text>
+                <Text style={styles.cardValue}>{item.qty}</Text>
+              </View>
+
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Status:</Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    item.status_penggunaan === "dipakai" ? styles.statusActive : styles.statusInactive,
+                  ]}>
+                  <Text
+                    style={[
+                      styles.statusText,
+                      item.status_penggunaan === "dipakai" ? styles.statusTextActive : styles.statusTextInactive,
+                    ]}>
+                    {item.status_penggunaan === "dipakai" ? "Dipakai" : "Tidak Dipakai"}
+                  </Text>
+                </View>
+              </View>
+
+              {item.status_penggunaan === "tidak_dipakai" && (
+                <>
+                  <View style={styles.cardRow}>
+                    <Text style={styles.cardLabel}>Alasan:</Text>
+                    <Text style={styles.cardValue}>{item.alasan_tidak_dipakai}</Text>
+                  </View>
+                  <View style={styles.cardRow}>
+                    <Text style={styles.cardLabel}>Tindak Lanjut:</Text>
+                    <Text style={styles.cardValue}>{item.tindak_lanjut}</Text>
+                  </View>
+                </>
+              )}
+            </View>
           </View>
-        ) : (
-          filteredBarang.map((item) => (
-            <View key={item.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{item.nama_barang}</Text>
-                <View style={styles.cardActions}>
+        )}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="cube-outline" size={64} color="#D1D5DB" />
+            <Text style={styles.emptyTitle}>Belum ada barang</Text>
+            <Text style={styles.emptySubtitle}>Tambahkan barang pertama Anda</Text>
+          </View>
+        }
+      />
+
+      {/* Floating Action Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => {
+          setSelectedBarang(null);
+          setModalVisible(true);
+        }}
+        activeOpacity={0.8}>
+        <Ionicons name="add" size={28} color="white" />
+      </TouchableOpacity>
+
+      {/* Modal */}
+      <Modal
+        isVisible={modalVisible}
+        onBackdropPress={closeModal}
+        onBackButtonPress={closeModal}
+        useNativeDriver
+        useNativeDriverForBackdrop
+        animationIn="slideInUp"
+        animationOut="slideOutDown"
+        backdropColor="#000"
+        backdropOpacity={0.5}
+        style={styles.modal}
+        avoidKeyboard={true}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidingView}>
+          <View style={styles.modalContainer}>
+            {/* Enhanced Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.greyLine} />
+              <View style={styles.headerContent}>
+                <Text style={styles.modalTitle}>{selectedBarang ? "Edit Barang" : "Tambah Barang"}</Text>
+                <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                  <Ionicons name="close" size={24} color="#8E8E93" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Scrollable Form Content */}
+            <ScrollView 
+              style={styles.scrollContainer}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled">
+              
+              {/* Nama Barang Section */}
+              <View style={styles.formSection}>
+                <Text style={styles.sectionTitle}>
+                  Nama Barang <Text style={styles.asterisk}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Masukkan nama barang"
+                  placeholderTextColor="#8E8E93"
+                  value={form.nama_barang}
+                  onChangeText={(text) => setForm((prev) => ({ ...prev, nama_barang: text }))}
+                  maxLength={50}
+                />
+              </View>
+
+              {/* Quantity Section */}
+              <View style={styles.formSection}>
+                <Text style={styles.sectionTitle}>
+                  Jumlah <Text style={styles.asterisk}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Masukkan jumlah"
+                  placeholderTextColor="#8E8E93"
+                  keyboardType="numeric"
+                  value={form.qty.toString()}
+                  onChangeText={(text) => setForm((prev) => ({ ...prev, qty: parseInt(text) || 1 }))}
+                  maxLength={3}
+                />
+              </View>
+
+              {/* Status Toggle Section */}
+              <View style={styles.formSection}>
+                <Text style={styles.sectionTitle}>
+                  Status Penggunaan <Text style={styles.asterisk}>*</Text>
+                </Text>
+                <View style={styles.toggleContainer}>
                   <TouchableOpacity
-                    onPress={() => {
-                      setSelectedBarang(item);
-                      setModalVisible(true);
-                    }}>
-                    <Ionicons name="create-outline" size={20} color="#3498db" />
+                    style={[styles.toggleButton, form.status_penggunaan === "dipakai" && styles.toggleButtonSelected]}
+                    onPress={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        status_penggunaan: "dipakai",
+                        alasan_tidak_dipakai: "",
+                        tindak_lanjut: "",
+                      }))
+                    }>
+                    <Text style={form.status_penggunaan === "dipakai" ? styles.toggleTextSelected : styles.toggleText}>
+                      Dipakai
+                    </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDelete(item.id)}>
-                    <Ionicons name="trash-outline" size={20} color="#e74c3c" />
+                  <TouchableOpacity
+                    style={[
+                      styles.toggleButton,
+                      form.status_penggunaan === "tidak_dipakai" && styles.toggleButtonSelected,
+                    ]}
+                    onPress={() => setForm((prev) => ({ ...prev, status_penggunaan: "tidak_dipakai" }))}>
+                    <Text
+                      style={form.status_penggunaan === "tidak_dipakai" ? styles.toggleTextSelected : styles.toggleText}>
+                      Tidak Dipakai
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
-              <View style={styles.cardDetail}>
-                <Text style={styles.detailText}>Jumlah: {item.qty}</Text>
-                <Text
-                  style={[styles.detailText, { color: item.status_penggunaan === "dipakai" ? "#27ae60" : "#e74c3c" }]}>
-                  Status: {item.status_penggunaan === "dipakai" ? "Dipakai" : "Tidak Dipakai"}
-                </Text>
-                {item.status_penggunaan === "tidak_dipakai" && (
-                  <>
-                    <Text style={styles.detailText}>Alasan: {item.alasan_tidak_dipakai}</Text>
-                    <Text style={styles.detailText}>Tindak Lanjut: {item.tindak_lanjut}</Text>
-                  </>
-                )}
-              </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
 
-      {/* Modal Form */}
-      <Modal
-        isVisible={modalVisible}
-        style={styles.modal}
-        onBackdropPress={() => {
-          setModalVisible(false);
-          setSelectedBarang(null);
-        }}
-        onBackButtonPress={() => {
-          setModalVisible(false);
-          setSelectedBarang(null);
-        }}
-        backdropColor="#000"
-        backdropOpacity={0.5}
-        animationIn="slideInUp"
-        animationOut="slideOutDown"
-        useNativeDriver={true}
-        useNativeDriverForBackdrop={true}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHandle} />
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{selectedBarang ? "Edit Barang" : "Tambah Barang Baru"}</Text>
-            <TouchableOpacity
-              onPress={() => {
-                setModalVisible(false);
-                setSelectedBarang(null);
-              }}
-              style={styles.modalCloseButton}>
-              <Ionicons name="close" size={24} color="#8E8E93" />
-            </TouchableOpacity>
+              {/* Conditional Fields */}
+              {form.status_penggunaan === "tidak_dipakai" && (
+                <>
+                  {/* Alasan Section */}
+                  <View style={styles.formSection}>
+                    <Text style={styles.sectionTitle}>
+                      Alasan Tidak Dipakai <Text style={styles.asterisk}>*</Text>
+                    </Text>
+                    <TextInput
+                      style={styles.descriptionInput}
+                      placeholder="Masukkan alasan..."
+                      placeholderTextColor="#8E8E93"
+                      value={form.alasan_tidak_dipakai}
+                      onChangeText={(text) => setForm((prev) => ({ ...prev, alasan_tidak_dipakai: text }))}
+                      multiline
+                      numberOfLines={4}
+                      textAlignVertical="top"
+                      maxLength={200}
+                    />
+                  </View>
+
+                  {/* Tindak Lanjut Section */}
+                  <View style={styles.formSection}>
+                    <Text style={styles.sectionTitle}>
+                      Tindak Lanjut <Text style={styles.asterisk}>*</Text>
+                    </Text>
+                    <TextInput
+                      style={styles.descriptionInput}
+                      placeholder="Masukkan tindak lanjut..."
+                      placeholderTextColor="#8E8E93"
+                      value={form.tindak_lanjut}
+                      onChangeText={(text) => setForm((prev) => ({ ...prev, tindak_lanjut: text }))}
+                      multiline
+                      numberOfLines={4}
+                      textAlignVertical="top"
+                      maxLength={200}
+                    />
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            {/* Enhanced Action Buttons */}
+            <View style={styles.actionButtons}>
+              <TouchableOpacity onPress={closeModal} style={styles.cancelButton} disabled={submitting}>
+                <Text style={styles.cancelButtonText}>Batal</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.submitButton, isSubmitDisabled && styles.submitButtonDisabled]}
+                onPress={handleSubmit}
+                disabled={isSubmitDisabled}
+                activeOpacity={isSubmitDisabled ? 1 : 0.8}>
+                {submitting ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.submitText}>{selectedBarang ? "Update" : "Simpan"}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-          <ScrollView style={styles.modalContent}>
-            <BarangForm
-              barang={selectedBarang}
-              onClose={() => {
-                setModalVisible(false);
-                setSelectedBarang(null);
-              }}
-              onSubmit={handleSubmit}
-              userId={userData?.id || 0}
-              loading={loading}
-            />
-          </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 }
 
-// Komponen Form Terpisah
-const BarangForm = ({
-  barang,
-  onClose,
-  onSubmit,
-  userId,
-  loading,
-}: {
-  barang: Barang | null;
-  onClose: () => void;
-  onSubmit: (formData: Omit<Barang, "id">) => void;
-  userId: number;
-  loading: boolean;
-}) => {
-  const [formData, setFormData] = useState<Omit<Barang, "id">>({
-    nama_barang: barang?.nama_barang || "",
-    id_pengguna: userId,
-    // Departemen dan jenis kepemilikan tidak lagi ditampilkan di form
-    id_departemen: barang?.id_departemen || 1,
-    jenis_kepemilikan: barang?.jenis_kepemilikan || "pribadi",
-    qty: barang?.qty || 1,
-    status_penggunaan: barang?.status_penggunaan || "dipakai",
-    alasan_tidak_dipakai: barang?.alasan_tidak_dipakai || "",
-    tindak_lanjut: barang?.tindak_lanjut || "",
-  });
-
-  const handleInputChange = (name: keyof typeof formData, value: string | number) => {
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-  };
-
-  const handleSubmit = () => {
-    if (!formData.nama_barang) {
-      CustomAlert.error("Error", "Nama barang wajib diisi");
-      return;
-    }
-    if (formData.status_penggunaan === "tidak_dipakai") {
-      if (!formData.alasan_tidak_dipakai) {
-        CustomAlert.error("Error", "Alasan tidak dipakai wajib diisi");
-        return;
-      }
-      if (!formData.tindak_lanjut) {
-        CustomAlert.error("Error", "Tindak lanjut wajib diisi");
-        return;
-      }
-    }
-    onSubmit(formData);
-  };
-
-  return (
-    <View style={styles.formContainer}>
-      <Text style={styles.label}>Nama Barang</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Nama Barang"
-        placeholderTextColor="#95a5a6"
-        value={formData.nama_barang}
-        onChangeText={(text) => handleInputChange("nama_barang", text)}
-        maxLength={50}
-      />
-
-      <Text style={styles.label}>Qty Barang:</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Jumlah"
-        placeholderTextColor="#95a5a6"
-        keyboardType="numeric"
-        value={formData.qty.toString()}
-        onChangeText={(text) => handleInputChange("qty", parseInt(text) || 0)}
-        maxLength={3}
-      />
-
-      <Text style={styles.label}>Status Penggunaan</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={formData.status_penggunaan}
-          onValueChange={(value) => {
-            handleInputChange("status_penggunaan", value);
-            // Reset alasan dan tindak lanjut jika kembali ke dipakai
-            if (value === "dipakai") {
-              handleInputChange("alasan_tidak_dipakai", "");
-              handleInputChange("tindak_lanjut", "");
-            }
-          }}
-          style={styles.picker}>
-          <Picker.Item label="Dipakai" value="dipakai" />
-          <Picker.Item label="Tidak Dipakai" value="tidak_dipakai" />
-        </Picker>
-      </View>
-
-      {formData.status_penggunaan === "tidak_dipakai" && (
-        <>
-          <Text style={styles.label}>Alasan</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Alasan Tidak Dipakai"
-            placeholderTextColor="#95a5a6"
-            value={formData.alasan_tidak_dipakai}
-            onChangeText={(text) => handleInputChange("alasan_tidak_dipakai", text)}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            maxLength={200}
-          />
-
-          <Text style={styles.label}>Tindak Lanjut</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Tindak Lanjut"
-            placeholderTextColor="#95a5a6"
-            value={formData.tindak_lanjut}
-            onChangeText={(text) => handleInputChange("tindak_lanjut", text)}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            maxLength={200}
-          />
-        </>
-      )}
-
-      <View style={styles.formButtons}>
-        <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-          <Text style={styles.cancelButtonText}>Batal</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.submitButtonText}>{barang ? "Update" : "Simpan"}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#F8FAFC",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#6B7280",
   },
   header: {
+    backgroundColor: "#FF6B6B",
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FF6B6B",
-    paddingHorizontal: 16,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    justifyContent: "space-between",
   },
   backButton: {
     padding: 4,
-    marginRight: 12,
   },
   headerTextContainer: {
+    alignItems: "center",
     flex: 1,
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#ffffffff",
-    letterSpacing: 0.3,
+    fontSize: 20,
+    fontWeight: "600",
+    color: "white",
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: "#ffffffff",
-    fontWeight: "500",
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.8)",
     marginTop: 2,
-    opacity: 0.9,
+  },
+  placeholder: {
+    width: 32,
+  },
+  searchSection: {
+    backgroundColor: "white",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    height: 50,
-  },
-  searchIcon: {
-    marginRight: 10,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 44,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    paddingVertical: 0,
-    color: "#2c3e50",
-  },
-  clearButton: {
-    padding: 4,
-  },
-  scrollContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
-  },
-  addButton: {
-    flexDirection: "row",
-    backgroundColor: "#FF6B6B",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-    elevation: 2,
-  },
-  addButtonText: {
-    color: "white",
-    fontWeight: "600",
-    fontSize: 16,
+    color: "#111827",
     marginLeft: 8,
   },
-  sectionHeader: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 12,
-    color: "#2c3e50",
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: "#7f8c8d",
-    marginTop: 16,
+  listContainer: {
+    padding: 20,
+    paddingBottom: 100,
   },
   card: {
     backgroundColor: "white",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
     marginBottom: 16,
+    overflow: "hidden",
     elevation: 2,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
   },
   cardTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#2c3e50",
+    color: "#111827",
     flex: 1,
+    marginRight: 12,
   },
   cardActions: {
     flexDirection: "row",
-    gap: 12,
+    gap: 8,
   },
-  cardDetail: {
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#f1f2f6",
+  actionButton: {
+    padding: 4,
   },
-  detailText: {
+  cardContent: {
+    padding: 16,
+    gap: 8,
+  },
+  cardRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cardLabel: {
     fontSize: 14,
-    color: "#34495e",
-    marginBottom: 6,
+    color: "#6B7280",
+    fontWeight: "500",
   },
-  // Modal Styles (Menggunakan referensi dari file yang diberikan)
+  cardValue: {
+    fontSize: 14,
+    color: "#111827",
+    flex: 1,
+    textAlign: "right",
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusActive: {
+    backgroundColor: "#D1FAE5",
+  },
+  statusInactive: {
+    backgroundColor: "#FEF3C7",
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  statusTextActive: {
+    color: "#065F46",
+  },
+  statusTextInactive: {
+    color: "#92400E",
+  },
+  emptyContainer: {
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#374151",
+    marginTop: 16,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 4,
+  },
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FF6B6B",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
   modal: {
     justifyContent: "flex-end",
     margin: 0,
   },
-  modalContainer: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "90%",
+  keyboardAvoidingView: {
   },
-  modalHandle: {
-    height: 4,
-    width: 40,
-    backgroundColor: "#E0E0E0",
-    borderRadius: 2,
-    alignSelf: "center",
-    marginTop: 12,
-    marginBottom: 20,
+  modalContainer: {
+    backgroundColor: "white",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     paddingHorizontal: 20,
+    paddingTop: 12,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
+    borderBottomColor: "#F3F4F6",
+  },
+  greyLine: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#D1D5DB",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#1C1C1E",
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#111827",
   },
-  modalCloseButton: {
+  closeButton: {
     padding: 4,
   },
-  modalContent: {
-    maxHeight: "80%",
-    paddingHorizontal: 20,
+  scrollContainer: {
+    maxHeight: 400, // Set a reasonable max height for scrollable area
   },
-  // Form Styles
-  formContainer: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    paddingVertical: 16,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  formSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 12,
+  },
+  asterisk: {
+    color: "#FF6B6B",
+    fontSize: 16,
+    fontWeight: "600",
   },
   input: {
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#F9FAFB",
     borderWidth: 1,
-    borderColor: "#E5E5EA",
+    borderColor: "#E5E7EB",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginBottom: 16,
     fontSize: 16,
-    color: "#1C1C1E",
+    color: "#111827",
   },
-  textArea: {
+  descriptionInput: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: "#111827",
     minHeight: 100,
     textAlignVertical: "top",
   },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#FF6B6B",
-    marginBottom: 8,
-  },
-  pickerContainer: {
-    backgroundColor: "#F8F9FA",
-    borderWidth: 1,
-    borderColor: "#E5E5EA",
-    borderRadius: 12,
-    marginBottom: 16,
-    overflow: "hidden",
-  },
-  picker: {
-    height: 50,
-    width: "100%",
-    color: "#1C1C1E",
-  },
-  formButtons: {
+  toggleContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 8,
-    gap: 12,
-  },
-  submitButton: {
-    flex: 2,
-    backgroundColor: "#FF6B6B",
-    paddingVertical: 16,
+    backgroundColor: "#F3F4F6",
     borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+    padding: 4,
   },
-  submitButtonText: {
-    color: "white",
-    fontWeight: "600",
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  toggleButtonSelected: {
+    backgroundColor: "#FF6B6B",
+  },
+  toggleText: {
     fontSize: 16,
+    fontWeight: "500",
+    color: "#6B7280",
+  },
+  toggleTextSelected: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "white",
+  },
+  actionButtons: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+    backgroundColor: "white",
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: "#F2F2F7",
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 12,
+    backgroundColor: "#F3F4F6",
     alignItems: "center",
-    justifyContent: "center",
   },
   cancelButtonText: {
-    color: "#8E8E93",
-    fontWeight: "600",
     fontSize: 16,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  submitButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: "#FF6B6B",
+    alignItems: "center",
+  },
+  submitButtonDisabled: {
+    backgroundColor: "#9CA3AF",
+    opacity: 0.6,
+  },
+  submitText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "white",
   },
 });
