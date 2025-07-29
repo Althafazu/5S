@@ -57,7 +57,7 @@ const methods = [
     id: "seiketsu",
     title: "Seiketsu",
     subtitle: "Standardize / Rawat",
-    icon: "shield-checkmark",
+    icon: "help",
     colors: ["#96CEB4", "#B8DCC6"],
     allowedRoles: [UserRole.PEKERJA],
   },
@@ -66,14 +66,14 @@ const methods = [
     title: "Shitsuke",
     subtitle: "Sustain / Rajin",
     icon: "refresh",
-    colors: ["#FFEAA7", "#FFF2C7"],
+    colors: ["#f2d36fff", "#efd88cff"],
     allowedRoles: [UserRole.PEKERJA, UserRole.SUPERVISOR],
   },
   {
     id: "temuan",
     title: "Temuan",
     subtitle: "Form Temuan",
-    icon: "document-text",
+    icon: "camera",
     colors: ["#DDA0DD", "#E6B8E6"],
     allowedRoles: [UserRole.PEKERJA, UserRole.SUPERVISOR],
   },
@@ -225,7 +225,7 @@ const CenterLogo = ({ userRole }: { userRole?: UserRole }) => {
         style={styles.centerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}>
-        <Text style={styles.centerText}>5S</Text>
+        <Text style={styles.centerText}>5S1T</Text>
       </LinearGradient>
     </Animated.View>
   );
