@@ -15,20 +15,9 @@ export default function TabsLayout() {
     return null;
   }
 
-  return (
-    // <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <SafeAreaView style={{ flex: 1 }}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="seiri" options={{ headerShown: false }} />
-          <Stack.Screen name="seiton" options={{ headerShown: false }} />
-          <Stack.Screen name="seiso" options={{ headerShown: false }} />
-          <Stack.Screen name="seiketsu" options={{ headerShown: false }} />
-          <Stack.Screen name="shitsuke" options={{ headerShown: false }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </SafeAreaView>
-    // </ThemeProvider>
+ return (
+    <SafeAreaView style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }} />
+    </SafeAreaView>
   );
 }

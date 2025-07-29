@@ -38,7 +38,7 @@ const methods = [
     allowedRoles: [UserRole.PEKERJA]
   },
   { 
-    id: "seiton", 
+    id: "Pekerja/seitonRead", 
     title: "Seiton", 
     subtitle: "Set in Order / Tata", 
     icon: "grid",
@@ -62,12 +62,20 @@ const methods = [
     allowedRoles: [UserRole.PEKERJA]
   },
   { 
-    id: "shitsuke", 
+    id: "Pekerja/shitsukeRead", 
     title: "Shitsuke", 
     subtitle: "Sustain / Rajin", 
     icon: "refresh",
     colors: ["#FFEAA7", "#FFF2C7"],
-    allowedRoles: [UserRole.PEKERJA, UserRole.SUPERVISOR]
+    allowedRoles: [UserRole.PEKERJA]
+  },
+    { 
+    id: "Supervisor/shitsukeCreate", 
+    title: "Shitsuke", 
+    subtitle: "Sustain / Rajin", 
+    icon: "refresh",
+    colors: ["#FFEAA7", "#FFF2C7"],
+    allowedRoles: [UserRole.SUPERVISOR]
   },
   { 
     id: "temuan", 
