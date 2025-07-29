@@ -6,6 +6,7 @@ import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import CustomAlert from "../utils/CustomAlert";
 
 const { width, height } = Dimensions.get("window");
 
@@ -299,7 +300,7 @@ export default function HomeScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Apakah Anda yakin ingin logout?", [
+    CustomAlert.warning("Logout", "Apakah Anda yakin ingin logout?", [
       {
         text: "Batal",
         style: "cancel",

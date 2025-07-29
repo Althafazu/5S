@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CustomAlert from "../utils/CustomAlert";
 
 // User roles enum
 export enum UserRole {
@@ -121,7 +122,7 @@ const Login = () => {
 
   const handleLogin = async () => {
     if (!username || !password) {
-      Alert.alert("Error", "Mohon isi semua field");
+      CustomAlert.error("Error", "Mohon isi semua field");
       return;
     }
 
@@ -143,7 +144,7 @@ const Login = () => {
 
         await saveUserData(userDataToSave);
 
-        Alert.alert(
+        CustomAlert.success(
           "Login Berhasil", 
           `Selamat datang ${user.name}`,
           [
@@ -156,11 +157,11 @@ const Login = () => {
           ]
         );
       } else {
-        Alert.alert("Login Gagal", "Username atau password salah!");
+        CustomAlert.error("Login Gagal", "Username atau password salah!");
       }
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert("Error", "Login Gagal. Coba lagi nanti.");
+      CustomAlert.error("Error", "Login Gagal. Coba lagi nanti.");
     } finally {
       setIsLoading(false);
     }
