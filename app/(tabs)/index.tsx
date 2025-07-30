@@ -38,10 +38,10 @@ const methods = [
     colors: ["#FF6B6B", "#FF8E8E"],
     allowedRoles: [UserRole.PEKERJA],
   },
-  {
-    id: "seiton",
-    title: "Seiton",
-    subtitle: "Set in Order / Tata",
+  { 
+    id: "Pekerja/seitonRead", 
+    title: "Seiton", 
+    subtitle: "Set in Order / Tata", 
     icon: "grid",
     colors: ["#4ECDC4", "#7EDDD8"],
     allowedRoles: [UserRole.PEKERJA],
@@ -62,13 +62,21 @@ const methods = [
     colors: ["#96CEB4", "#B8DCC6"],
     allowedRoles: [UserRole.PEKERJA],
   },
-  {
-    id: "shitsuke",
-    title: "Shitsuke",
-    subtitle: "Sustain / Rajin",
+  { 
+    id: "Pekerja/shitsukeRead", 
+    title: "Shitsuke", 
+    subtitle: "Sustain / Rajin", 
     icon: "refresh",
-    colors: ["#f2d36fff", "#efd88cff"],
-    allowedRoles: [UserRole.PEKERJA, UserRole.SUPERVISOR],
+    colors: ["#FFEAA7", "#FFF2C7"],
+    allowedRoles: [UserRole.PEKERJA]
+  },
+    { 
+    id: "Supervisor/shitsukeCreate", 
+    title: "Shitsuke", 
+    subtitle: "Sustain / Rajin", 
+    icon: "refresh",
+    colors: ["#FFEAA7", "#FFF2C7"],
+    allowedRoles: [UserRole.SUPERVISOR]
   },
   {
     id: "temuan",
