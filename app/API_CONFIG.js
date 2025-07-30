@@ -1,4 +1,4 @@
-const BASE_URL = "http://192.168.100.148:8080"; // Ganti sesuai alamat backend
+const BASE_URL = "http://10.1.51.153:8080"; // Ganti sesuai alamat backend
 
 export const API_ENDPOINTS = {
   // ===== Penyimpanan (Seiton) =====

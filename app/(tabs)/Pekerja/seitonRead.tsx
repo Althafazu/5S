@@ -17,11 +17,12 @@ const fetchLogs = async () => {
     setLoading(true);
     
     // const id_pengguna = await AsyncStorage.getItem("id");
-    const id_pengguna = "1";
-    console.log(id_pengguna);
-    if (!id_pengguna) throw new Error("ID pengguna tidak ditemukan");
+    // const id_pengguna = "1";
+    // console.log(id_pengguna);
+    // if (!id_pengguna) throw new Error("ID pengguna tidak ditemukan");
+    console.log("Fetching logs for user ID:", API_ENDPOINTS.GET_PENYIMPANAN_BY_SEARCH('') );
 
-    const response = await fetch(API_ENDPOINTS.GET_PENYIMPANAN_BY_SEARCH(id_pengguna));
+    const response = await fetch(API_ENDPOINTS.GET_PENYIMPANAN_BY_SEARCH(''));
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
 
